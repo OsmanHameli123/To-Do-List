@@ -1,14 +1,15 @@
 package org.Task;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.InputMismatchException;
 import java.util.Scanner;
 
 public class TaskManager {
+
     // ===== 2D array storage =====
     private static String[][] tasks;
     private static int taskCount = 0;
@@ -68,6 +69,7 @@ public class TaskManager {
                     saveToFile();
                     break;
                 case 9:
+                    saveToFile();
                     System.out.println("Exiting...");
                     break;
                 default:
@@ -106,7 +108,6 @@ public class TaskManager {
     private static void addTask(Scanner scanner) {
         ensureCapacity();
 
-        scanner.nextLine(); // consume leftover
         System.out.print("Name: ");
         String name = scanner.nextLine();
 
@@ -116,7 +117,6 @@ public class TaskManager {
         int priority = safeIntRange(scanner, "Priority (1-5): ", 1, 5);
 
         System.out.print("Category (Work/Home/Personal...): ");
-        scanner.nextLine(); // consume leftover
         String category = scanner.nextLine();
 
         LocalDate dueDate = safeDate(scanner, "Due date (yyyy-MM-dd): ");
@@ -124,7 +124,6 @@ public class TaskManager {
         double estTime = safeDouble(scanner, "Estimated time (hours): ");
 
         System.out.print("Tags (comma separated, e.g. java,school,urgent): ");
-        scanner.nextLine(); // consume leftover
         String tags = scanner.nextLine();
 
         System.out.print("Assigned to: ");
@@ -149,30 +148,18 @@ public class TaskManager {
         System.out.println("Task added! Status is 'Pending'.");
     }
 
-    // 2) Show
+    // 2) Show (TABLE)
     private static void showAllTasks() {
         if (taskCount == 0) {
             System.out.println("No tasks found.");
             return;
         }
 
-        System.out.printf("%-5s %-18s %-8s %-10s %-12s %-12s %-12s %-10s %-18s %-12s%n",
-                "No", "Name", "Prio", "Status", "Category", "Due", "Created", "Hours", "Tags", "Assigned");
-
+        printTableHeader();
         for (int i = 0; i < taskCount; i++) {
-            System.out.printf("%-5d %-18s %-8s %-10s %-12s %-12s %-12s %-10s %-18s %-12s%n",
-                    (i + 1),
-                    safeStr(tasks[i][COL_NAME]),
-                    safeStr(tasks[i][COL_PRIORITY]),
-                    safeStr(tasks[i][COL_STATUS]),
-                    safeStr(tasks[i][COL_CATEGORY]),
-                    safeStr(tasks[i][COL_DUE]),
-                    safeStr(tasks[i][COL_CREATED]),
-                    safeStr(tasks[i][COL_EST_TIME]),
-                    safeStr(tasks[i][COL_TAGS]),
-                    safeStr(tasks[i][COL_ASSIGNED])
-            );
+            printTableRow(i);
         }
+        printLine();
     }
 
     // 3) Change status
@@ -188,7 +175,6 @@ public class TaskManager {
             return;
         }
 
-        scanner.nextLine(); // consume leftover
         System.out.print("New status (Pending/Done): ");
         String status = scanner.nextLine().trim();
 
@@ -214,7 +200,6 @@ public class TaskManager {
         System.out.println("3. By tag");
         int choice = safeInt(scanner, "Select filter: ");
 
-        scanner.nextLine(); // consume leftover
         switch (choice) {
             case 1: {
                 System.out.print("Category: ");
@@ -240,39 +225,44 @@ public class TaskManager {
 
     private static void filterByCategory(String category) {
         boolean found = false;
+        printTableHeader();
         for (int i = 0; i < taskCount; i++) {
             if (tasks[i][COL_CATEGORY] != null &&
                     tasks[i][COL_CATEGORY].equalsIgnoreCase(category)) {
-                printOne(i);
+                printTableRow(i);
                 found = true;
             }
         }
+        printLine();
         if (!found) System.out.println("No tasks found for category: " + category);
     }
 
     private static void filterByPriority(int priority) {
         boolean found = false;
+        printTableHeader();
         for (int i = 0; i < taskCount; i++) {
             int p = parseIntSafe(tasks[i][COL_PRIORITY], -1);
             if (p == priority) {
-                printOne(i);
+                printTableRow(i);
                 found = true;
             }
         }
+        printLine();
         if (!found) System.out.println("No tasks found for priority: " + priority);
     }
 
     private static void filterByTag(String tag) {
         boolean found = false;
         String t = tag.toLowerCase();
+        printTableHeader();
         for (int i = 0; i < taskCount; i++) {
             String tags = safeStr(tasks[i][COL_TAGS]).toLowerCase();
-            // simple contains; user can keep tags "java,school"
             if (tags.contains(t)) {
-                printOne(i);
+                printTableRow(i);
                 found = true;
             }
         }
+        printLine();
         if (!found) System.out.println("No tasks found containing tag: " + tag);
     }
 
@@ -311,7 +301,6 @@ public class TaskManager {
     }
 
     private static void sortByDueDate() {
-        // selection sort
         for (int i = 0; i < taskCount - 1; i++) {
             int minIdx = i;
             for (int j = i + 1; j < taskCount; j++) {
@@ -381,8 +370,6 @@ public class TaskManager {
         System.out.println("9. Status");
         int field = safeInt(scanner, "Select field: ");
 
-        scanner.nextLine(); // consume leftover
-
         switch (field) {
             case 1:
                 System.out.print("New name: ");
@@ -449,12 +436,9 @@ public class TaskManager {
             return;
         }
 
-        // shift up
         for (int i = index; i < taskCount - 1; i++) {
             tasks[i] = tasks[i + 1];
         }
-
-        // clear last row reference
         tasks[taskCount - 1] = new String[COLS];
         taskCount--;
 
@@ -464,14 +448,11 @@ public class TaskManager {
     // 8) Save / Load
     private static void saveToFile() {
         try (FileWriter writer = new FileWriter(FILE_NAME)) {
-            // first line: taskCount and capacity
             writer.write(taskCount + " " + tasks.length + "\n");
 
-            // each task row in 1 line: 10 columns separated by TAB
             for (int i = 0; i < taskCount; i++) {
                 for (int c = 0; c < COLS; c++) {
-                    String cell = tasks[i][c];
-                    writer.write(escape(cell));
+                    writer.write(escape(tasks[i][c]));
                     if (c < COLS - 1) writer.write("\t");
                 }
                 writer.write("\n");
@@ -501,8 +482,6 @@ public class TaskManager {
                 if (!scanner.hasNextLine()) break;
                 String line = scanner.nextLine();
                 String[] parts = line.split("\t", -1);
-
-                // if corrupted line, skip
                 if (parts.length != COLS) continue;
 
                 for (int c = 0; c < COLS; c++) {
@@ -515,12 +494,46 @@ public class TaskManager {
             System.out.println("Data loaded from " + FILE_NAME + " (tasks: " + taskCount + ")");
             return true;
         } catch (Exception e) {
-            // if anything goes wrong, just start fresh
             return false;
         }
     }
 
     // ===== Helpers =====
+
+    private static void printTableHeader() {
+        printLine();
+        System.out.printf("%-4s %-12s %-18s %-5s %-10s %-10s %-12s %-12s %-7s %-14s %-12s%n",
+                "No", "Name", "Description", "Pr", "Status", "Category",
+                "Due", "Created", "Hours", "Tags", "Assigned");
+        printLine();
+    }
+
+    private static void printTableRow(int i) {
+        System.out.printf("%-4d %-12s %-18s %-5s %-10s %-10s %-12s %-12s %-7s %-14s %-12s%n",
+                (i + 1),
+                cut(safeStr(tasks[i][COL_NAME]), 12),
+                cut(safeStr(tasks[i][COL_DESC]), 18),
+                safeStr(tasks[i][COL_PRIORITY]),
+                cut(safeStr(tasks[i][COL_STATUS]), 10),
+                cut(safeStr(tasks[i][COL_CATEGORY]), 10),
+                safeStr(tasks[i][COL_DUE]),
+                safeStr(tasks[i][COL_CREATED]),
+                cut(safeStr(tasks[i][COL_EST_TIME]), 7),
+                cut(safeStr(tasks[i][COL_TAGS]), 14),
+                cut(safeStr(tasks[i][COL_ASSIGNED]), 12)
+        );
+    }
+
+    private static void printLine() {
+        System.out.println("------------------------------------------------------------------------------------------------------------");
+    }
+
+    private static String cut(String s, int max) {
+        if (s == null) return "";
+        s = s.trim();
+        if (s.length() <= max) return s;
+        return s.substring(0, max - 1) + ".";
+    }
 
     private static void printOne(int i) {
         System.out.println("--------------------------------------------------");
@@ -549,7 +562,6 @@ public class TaskManager {
         }
         if (taskCount < tasks.length) return;
 
-        // expand by +20
         int newCap = tasks.length + 20;
         String[][] newArr = new String[newCap][COLS];
         for (int i = 0; i < tasks.length; i++) {
@@ -570,10 +582,9 @@ public class TaskManager {
         while (true) {
             try {
                 System.out.print(message);
-                return scanner.nextInt();
-            } catch (InputMismatchException e) {
+                return Integer.parseInt(scanner.nextLine().trim());
+            } catch (Exception e) {
                 System.out.println("Invalid number. Try again.");
-                scanner.nextLine();
             }
         }
     }
@@ -590,10 +601,9 @@ public class TaskManager {
         while (true) {
             try {
                 System.out.print(message);
-                return scanner.nextDouble();
-            } catch (InputMismatchException e) {
+                return Double.parseDouble(scanner.nextLine().trim());
+            } catch (Exception e) {
                 System.out.println("Invalid number. Try again.");
-                scanner.nextLine();
             }
         }
     }
@@ -602,7 +612,7 @@ public class TaskManager {
         while (true) {
             try {
                 System.out.print(message);
-                String s = scanner.next().trim();
+                String s = scanner.nextLine().trim();
                 return LocalDate.parse(s, DATE_FMT);
             } catch (DateTimeParseException e) {
                 System.out.println("Invalid date format. Use yyyy-MM-dd (example: 2025-12-31)");
@@ -614,7 +624,6 @@ public class TaskManager {
         try {
             return LocalDate.parse(s, DATE_FMT);
         } catch (Exception e) {
-            // if missing/bad date, push it far
             return LocalDate.of(9999, 12, 31);
         }
     }
@@ -633,7 +642,6 @@ public class TaskManager {
         return (s == null) ? "" : s;
     }
 
-    // File-safe encoding for tabs/newlines/backslashes
     private static String escape(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")
@@ -644,7 +652,6 @@ public class TaskManager {
 
     private static String unescape(String s) {
         if (s == null) return "";
-        // important order: unescape \\ last? Here we do simple reverse for our patterns
         return s.replace("\\t", "\t")
                 .replace("\\n", "\n")
                 .replace("\\r", "\r")
